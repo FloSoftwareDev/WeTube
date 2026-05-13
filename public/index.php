@@ -7,23 +7,23 @@ define('CORE_PATH',   ROOT_PATH . '/core');
 define('VIEWS_PATH',  ROOT_PATH . '/views');
 define('CONFIG_PATH', ROOT_PATH . '/config');
 
-// 2. Autoloader (or manual requires for now)
+// 2. Requires
 require_once CORE_PATH . '/Database.php';
 require_once CORE_PATH . '/Router.php';
 require_once APP_PATH . '/models/User.php';
 require_once APP_PATH . '/models/Video.php';
-// Add any other files once they exist.
+require_once APP_PATH . '/services/AuthService.php';
+require_once APP_PATH . '/controllers/AuthController.php';
+require_once APP_PATH . '/controllers/VideoController.php';
 
 // 3. Start session
 session_start();
 
- // 4. Create router
+// 4. Create router
 $router = new Router();
 
-// 5. Routes (your existing list goes here, unchanged)
-$router->get('/', [VideoController::class, 'index']);
-// ... etc
+// 5. Load routes
+require_once CONFIG_PATH . '/routes.php';
 
 // 6. Dispatch
 $router->dispatch($_SERVER['REQUEST_URI'], $_SERVER['REQUEST_METHOD']);
-

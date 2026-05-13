@@ -41,6 +41,18 @@ class User
     }
 
     /**
+     * Find a user by username. Used by login when the input isn't an email.
+     */
+    public static function findByUsername(string $username): ?User
+    {
+        $row = Database::getInstance()->fetchOne(
+            'SELECT * FROM users WHERE username = ?',
+            [$username]
+        );
+        return $row ? self::hydrate($row) : null;
+    }
+
+    /**
      * Insert a new user, or update the existing one.
      * Returns true on success.
      */
