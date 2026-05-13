@@ -10,6 +10,7 @@ class Video
 {
     public ?int    $videoId      = null;
     public int     $userId       = 0;
+    public ?string $username     = null;
     public string  $title        = '';
     public ?string $description  = null;
     public string  $url          = '';
@@ -24,7 +25,10 @@ class Video
     public static function findById(int $id): ?Video
     {
         $row = Database::getInstance()->fetchOne(
-            'SELECT * FROM videos WHERE video_id = ?',
+            'SELECT videos.*, users.username
+             FROM videos
+             LEFT JOIN users ON videos.user_id = users.user_id
+             WHERE videos.video_id = ?',
             [$id]
         );
         return $row ? self::hydrate($row) : null;
@@ -36,7 +40,10 @@ class Video
     public static function listLatest(int $limit = 20): array
     {
         $rows = Database::getInstance()->fetchAll(
-            'SELECT * FROM videos ORDER BY created_at DESC LIMIT ?',
+            'SELECT videos.*, users.username
+             FROM videos
+             LEFT JOIN users ON videos.user_id = users.user_id
+             ORDER BY videos.created_at DESC LIMIT ?',
             [$limit]
         );
         return array_map([self::class, 'hydrate'], $rows);
@@ -83,6 +90,38 @@ class Video
     }
 
     /**
+     * Get all videos uploaded by a specific user, newest first.
+     */
+    public static function listByUser(int $userId, int $limit = 50): array
+    {
+        $rows = Database::getInstance()->fetchAll(
+            'SELECT videos.*, users.username
+             FROM videos
+             LEFT JOIN users ON videos.user_id = users.user_id
+             WHERE videos.user_id = ? ORDER BY videos.created_at DESC LIMIT ?',
+            [$userId, $limit]
+        );
+        return array_map([self::class, 'hydrate'], $rows);
+    }
+
+    /**
+     * Full-text search across title and description.
+     */
+    public static function search(string $query, int $limit = 20): array
+    {
+        $like = '%' . $query . '%';
+        $rows = Database::getInstance()->fetchAll(
+            'SELECT videos.*, users.username
+             FROM videos
+             LEFT JOIN users ON videos.user_id = users.user_id
+             WHERE videos.title LIKE ? OR videos.description LIKE ?
+             ORDER BY videos.created_at DESC LIMIT ?',
+            [$like, $like, $limit]
+        );
+        return array_map([self::class, 'hydrate'], $rows);
+    }
+
+    /**
      * Build a Video object from a DB row.
      */
     private static function hydrate(array $row): Video
@@ -90,6 +129,7 @@ class Video
         $video = new Video();
         $video->videoId      = (int) $row['video_id'];
         $video->userId       = (int) $row['user_id'];
+        $video->username     = $row['username'] ?? null;
         $video->title        = $row['title'];
         $video->description  = $row['description'];
         $video->url          = $row['url'];

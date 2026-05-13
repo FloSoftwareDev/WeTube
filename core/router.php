@@ -87,7 +87,7 @@ class Router
                 break;
 
             case 'admin':
-                if (!AuthService::check() || AuthService::role() !== 'admin') {
+                if (!AuthService::check() || AuthService::role() !== User::ROLE_ADMIN) {
                     http_response_code(403);
                     echo '403 — Forbidden';
                     exit;

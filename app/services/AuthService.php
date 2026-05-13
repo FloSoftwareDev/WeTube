@@ -16,15 +16,15 @@ class AuthService
      * @param array $data ['username' => ..., 'email' => ..., 'password' => ...]
      * @throws RuntimeException with a user-friendly message
      */
-    public static function register(array $data): User
-    {
-        $username = trim($data['username'] ?? '');
-        $email    = trim($data['email'] ?? '');
-        $password = $data['password'] ?? '';
+    public static function register(array $data): User {
 
-        // Basic validation
-        if ($username === '' || $email === '' || $password === '') {
-            throw new RuntimeException('All fields are required.');
+        $username        = trim($data['username'] ?? '');
+        $email           = trim($data['email'] ?? '');
+        $password        = $data['password'] ?? '';
+        $confirmPassword = $data['confirm_password'] ?? '';
+
+        if ($username === '') {
+            throw new RuntimeException('Username is required.');
         }
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             throw new RuntimeException('Please enter a valid email address.');
@@ -32,23 +32,26 @@ class AuthService
         if (strlen($password) < 8) {
             throw new RuntimeException('Password must be at least 8 characters.');
         }
+        if ($password !== $confirmPassword) {
+            throw new RuntimeException('Passwords do not match.');
+        }
 
-        // Uniqueness check
+        if (User::findByUsername($username) !== null) {
+            throw new RuntimeException('That username is already taken.');
+        }
         if (User::findByEmail($email) !== null) {
             throw new RuntimeException('An account with that email already exists.');
         }
 
-        // Create the user
         $user = new User();
         $user->username = $username;
-        $user->email    = $email;
-        $user->role     = 'user';
+        $user->email   = $email;
+        $user->role     = User::ROLE_USER;
         $user->setPassword($password);
         $user->save();
 
         return $user;
     }
-
     /**
      * Try to log in with email-or-username + password.
      * Returns the User on success, null on failure (so you can show "wrong credentials").
@@ -103,9 +106,10 @@ class AuthService
     /**
      * Get the current user's role, or null if logged out.
      */
-    public static function role(): ?string
+    public static function role(): ?int
     {
-        return $_SESSION['role'] ?? null;
+        $r = $_SESSION['role'] ?? null;
+        return $r !== null ? (int) $r : null;
     }
 
     /**

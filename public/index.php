@@ -15,6 +15,7 @@ require_once APP_PATH . '/models/Video.php';
 require_once APP_PATH . '/services/AuthService.php';
 require_once APP_PATH . '/controllers/AuthController.php';
 require_once APP_PATH . '/controllers/VideoController.php';
+require_once APP_PATH . '/controllers/CommentController.php';
 
 // 3. Start session
 session_start();

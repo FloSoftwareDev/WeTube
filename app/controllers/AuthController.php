@@ -1,21 +1,15 @@
 <?php
 
-/**
- * AuthController — login, register, logout HTTP handlers.
- */
 class AuthController
 {
     public function showLogin(): void
     {
-        // If already logged in, just send them home
         if (AuthService::check()) {
             header('Location: /WeTube/public/');
             exit;
         }
-        $error = $_SESSION['flash_error'] ?? null;
-        unset($_SESSION['flash_error']);
-
-        include VIEWS_PATH . '/auth/login.php';
+        header('Location: /WeTube/public/?modal=login');
+        exit;
     }
 
     public function login(): void
@@ -27,7 +21,8 @@ class AuthController
 
         if ($user === null) {
             $_SESSION['flash_error'] = 'Invalid login credentials.';
-            header('Location: /WeTube/public/login');
+            $_SESSION['flash_modal'] = 'login';
+            header('Location: /WeTube/public/');
             exit;
         }
 
@@ -41,34 +36,31 @@ class AuthController
             header('Location: /WeTube/public/');
             exit;
         }
-        $error = $_SESSION['flash_error'] ?? null;
-        $old   = $_SESSION['flash_old']   ?? [];
-        unset($_SESSION['flash_error'], $_SESSION['flash_old']);
-
-        include VIEWS_PATH . '/auth/register.php';
+        header('Location: /WeTube/public/?modal=register');
+        exit;
     }
 
     public function register(): void
     {
         try {
             AuthService::register([
-                'username' => $_POST['username'] ?? '',
-                'email'    => $_POST['email']    ?? '',
-                'password' => $_POST['password'] ?? '',
+                'username'         => $_POST['username']         ?? '',
+                'email'            => $_POST['email']            ?? '',
+                'password'         => $_POST['password']         ?? '',
+                'confirm_password' => $_POST['confirm_password'] ?? '',
             ]);
         } catch (RuntimeException $e) {
             $_SESSION['flash_error'] = $e->getMessage();
+            $_SESSION['flash_modal'] = 'register';
             $_SESSION['flash_old']   = [
                 'username' => $_POST['username'] ?? '',
                 'email'    => $_POST['email']    ?? '',
             ];
-            header('Location: /WeTube/public/register');
+            header('Location: /WeTube/public/');
             exit;
         }
 
-        // Auto-login after registration
         AuthService::login($_POST['email'], $_POST['password']);
-
         header('Location: /WeTube/public/');
         exit;
     }

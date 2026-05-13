@@ -8,12 +8,16 @@
  */
 class User
 {
+    const ROLE_USER  = 1;
+    const ROLE_ADMIN = 2;
+
     public ?int      $userId         = null;
     public string    $username       = '';
     public string    $email          = '';
     private string   $passwordHash   = '';
-    public string    $role           = 'user';
+    public int       $role           = self::ROLE_USER; // 1 = user, 2 = admin
     public ?string   $profilePicture = null;
+    public ?string   $bio            = null;
     public ?string   $createdAt      = null;
 
     /**
@@ -78,13 +82,14 @@ class User
             // UPDATE
             $db->query(
                 'UPDATE users
-                 SET username = ?, email = ?, role = ?, profile_picture = ?
+                 SET username = ?, email = ?, role = ?, profile_picture = ?, bio = ?
                  WHERE user_id = ?',
                 [
                     $this->username,
                     $this->email,
                     $this->role,
                     $this->profilePicture,
+                    $this->bio,
                     $this->userId,
                 ]
             );
@@ -118,8 +123,9 @@ class User
         $user->username       = $row['username'];
         $user->email          = $row['email'];
         $user->passwordHash   = $row['password_hash'];
-        $user->role           = $row['role'];
+        $user->role           = (int) $row['role'];
         $user->profilePicture = $row['profile_picture'];
+        $user->bio            = $row['bio'] ?? null;
         $user->createdAt      = $row['created_at'];
         return $user;
     }

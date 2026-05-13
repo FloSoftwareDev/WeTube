@@ -1,12 +1,5 @@
 <?php
 
-/**
- * Database — PDO singleton.
- *
- * Use Database::getInstance() to get the shared connection,
- * then call ->query(), ->fetchOne(), or ->fetchAll() with a SQL
- * string and an array of parameters.
- */
 class Database
 {
     private static ?Database $instance = null;

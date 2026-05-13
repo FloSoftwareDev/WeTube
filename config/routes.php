@@ -26,6 +26,8 @@ $router->get('/search',     [VideoController::class, 'search']);
 // =====================================================
 // Protected video routes
 // =====================================================
+$router->get('/profile',            [VideoController::class, 'profile'])->middleware('auth');
+$router->post('/profile',           [VideoController::class, 'profile'])->middleware('auth');
 $router->get('/upload',             [VideoController::class, 'upload'])->middleware('auth');
 $router->post('/upload',            [VideoController::class, 'upload'])->middleware('auth');
 $router->get('/video/{id}/edit',    [VideoController::class, 'edit'])->middleware('auth');
