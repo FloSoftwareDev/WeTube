@@ -14,6 +14,7 @@ require_once CORE_PATH . '/Database.php';
 require_once CORE_PATH . '/Router.php';
 require_once APP_PATH . '/models/User.php';
 require_once APP_PATH . '/models/Video.php';
+require_once APP_PATH . '/models/Comment.php';
 require_once APP_PATH . '/services/AuthService.php';
 require_once APP_PATH . '/controllers/AuthController.php';
 require_once APP_PATH . '/controllers/VideoController.php';

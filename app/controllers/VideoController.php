@@ -32,6 +32,21 @@ class VideoController
         );
         $video->viewCount = $video->viewCount + 1;
 
+        // Load top-level comments and their replies for this video
+        $comments = Comment::listByVideo($video->videoId);
+        $replies  = [];
+        foreach ($comments as $c) {
+            $replies[$c->commentId] = Comment::findReplies($c->commentId);
+        }
+
+        // Current user (for the "can delete this comment?" check)
+        $currentUser = AuthService::check()
+            ? User::findById((int) $_SESSION['user_id'])
+            : null;
+
+        $commentError = isset($_SESSION['flash_error']) ? $_SESSION['flash_error'] : null;
+        unset($_SESSION['flash_error']);
+
         include VIEWS_PATH . '/layouts/header.php';
         include VIEWS_PATH . '/videos/show.php';
         include VIEWS_PATH . '/layouts/footer.php';
