@@ -63,7 +63,7 @@ class Comment
     {
         if ($this->commentId === null) {
             Database::query(
-                'INSERT INTO comments (user_id, video_id, parent_comment_id, content)
+                'INSERT INTO comments (user_id, video_id, parent_comment_id, body)
                  VALUES (?, ?, ?, ?)',
                 [$this->userId, $this->videoId, $this->parentCommentId, $this->content]
             );
@@ -71,7 +71,7 @@ class Comment
         } else {
             Database::query(
                 'UPDATE comments
-                 SET content = ?
+                 SET body = ?
                  WHERE comment_id = ?',
                 [$this->content, $this->commentId]
             );
@@ -114,7 +114,7 @@ class Comment
         $comment->username        = isset($row['username']) ? $row['username'] : null;
         $comment->videoId         = (int) $row['video_id'];
         $comment->parentCommentId = $row['parent_comment_id'] !== null ? (int) $row['parent_comment_id'] : null;
-        $comment->content         = $row['content'];
+        $comment->content         = $row['body'];
         $comment->createdAt       = $row['created_at'];
         return $comment;
     }
