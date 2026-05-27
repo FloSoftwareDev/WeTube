@@ -21,7 +21,7 @@ if ($_flashModal !== null) {
 <meta charset="UTF-8">
 <title>WeTube</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Orbitron:wght@700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/WeTube/public/css/style.css">
+<link rel="stylesheet" href="/WeTube/public/css/style.css?v=<?= filemtime(ROOT_PATH . '/public/css/style.css') ?>">
 </head>
 <body>
 
