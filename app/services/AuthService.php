@@ -1,28 +1,25 @@
 <?php
 
 /**
- * AuthService — handles registration, login, logout, and session state.
+ * AuthService — everything to do with logging users in and out.
  *
- * Session keys used:
+ * After a successful login we put three things in the session:
  *   $_SESSION['user_id']
  *   $_SESSION['username']
  *   $_SESSION['role']
  */
 class AuthService
 {
-    /**
-     * Register a new user. Returns the User on success, throws on validation failure.
-     *
-     * @param array $data ['username' => ..., 'email' => ..., 'password' => ...]
-     * @throws RuntimeException with a user-friendly message
-     */
-    public static function register(array $data): User {
+    // Create a new user account. Returns the User object on success.
+    // Throws a RuntimeException with a nice message if something is wrong.
+    public static function register($data)
+    {
+        $username        = isset($data['username']) ? trim($data['username']) : '';
+        $email           = isset($data['email']) ? trim($data['email']) : '';
+        $password        = isset($data['password']) ? $data['password'] : '';
+        $confirmPassword = isset($data['confirm_password']) ? $data['confirm_password'] : '';
 
-        $username        = trim($data['username'] ?? '');
-        $email           = trim($data['email'] ?? '');
-        $password        = $data['password'] ?? '';
-        $confirmPassword = $data['confirm_password'] ?? '';
-
+        // ---- Validate ----
         if ($username === '') {
             throw new RuntimeException('Username is required.');
         }
@@ -35,7 +32,6 @@ class AuthService
         if ($password !== $confirmPassword) {
             throw new RuntimeException('Passwords do not match.');
         }
-
         if (User::findByUsername($username) !== null) {
             throw new RuntimeException('That username is already taken.');
         }
@@ -43,94 +39,65 @@ class AuthService
             throw new RuntimeException('An account with that email already exists.');
         }
 
+        // ---- Create the user ----
         $user = new User();
         $user->username = $username;
-        $user->email   = $email;
+        $user->email    = $email;
         $user->role     = User::ROLE_USER;
         $user->setPassword($password);
         $user->save();
 
         return $user;
     }
-    /**
-     * Try to log in with email-or-username + password.
-     * Returns the User on success, null on failure (so you can show "wrong credentials").
-     */
-    public static function login(string $identifier, string $password): ?User
+
+    // Try to log in with either an email or a username, plus a password.
+    // Returns the User on success, or null if the credentials are wrong.
+    public static function login($identifier, $password)
     {
         $identifier = trim($identifier);
 
-        // Auto-detect: if it looks like an email, search by email; else by username
-        $user = filter_var($identifier, FILTER_VALIDATE_EMAIL)
-            ? User::findByEmail($identifier)
-            : User::findByUsername($identifier);
+        // If the input looks like an email, search by email; otherwise by username
+        if (filter_var($identifier, FILTER_VALIDATE_EMAIL)) {
+            $user = User::findByEmail($identifier);
+        } else {
+            $user = User::findByUsername($identifier);
+        }
 
-        if ($user === null || !$user->verifyPassword($password)) {
+        if ($user === null) {
+            return null;
+        }
+        if (!$user->verifyPassword($password)) {
             return null;
         }
 
-        self::startSessionFor($user);
+        // Login OK -> store the user in the session
+        session_regenerate_id(true);  // new session id for safety
+        $_SESSION['user_id']  = $user->userId;
+        $_SESSION['username'] = $user->username;
+        $_SESSION['role']     = $user->role;
+
         return $user;
     }
 
-    /**
-     * Log the current user out. Clears the session entirely.
-     */
-    public static function logout(): void
+    // Log the current user out and clear the session.
+    public static function logout()
     {
         $_SESSION = [];
-        if (ini_get('session.use_cookies')) {
-            $params = session_get_cookie_params();
-            setcookie(session_name(), '', time() - 42000, $params['path'], $params['domain'],
-                      $params['secure'], $params['httponly']);
-        }
         session_destroy();
     }
 
-    /**
-     * Quick boolean: is someone logged in right now?
-     */
-    public static function check(): bool
+    // Is somebody logged in right now? (true/false)
+    public static function check()
     {
         return isset($_SESSION['user_id']);
     }
 
-    /**
-     * Get the current user's ID, or null if logged out.
-     */
-    public static function id(): ?int
+    // Get the role of the logged-in user, or null if logged out.
+    public static function role()
     {
-        return $_SESSION['user_id'] ?? null;
-    }
-
-    /**
-     * Get the current user's role, or null if logged out.
-     */
-    public static function role(): ?int
-    {
-        $r = $_SESSION['role'] ?? null;
-        return $r !== null ? (int) $r : null;
-    }
-
-    /**
-     * Get the current User object (full DB lookup). Null if logged out.
-     */
-    public static function currentUser(): ?User
-    {
-        $id = self::id();
-        return $id === null ? null : User::findById($id);
-    }
-
-    /**
-     * Set the session variables for a freshly-authenticated user.
-     */
-    private static function startSessionFor(User $user): void
-    {
-        // Regenerate the session ID on login to prevent session fixation
-        session_regenerate_id(true);
-
-        $_SESSION['user_id']  = $user->userId;
-        $_SESSION['username'] = $user->username;
-        $_SESSION['role']     = $user->role;
+        if (!isset($_SESSION['role'])) {
+            return null;
+        }
+        return (int) $_SESSION['role'];
     }
 }

@@ -1,11 +1,19 @@
 <?php
-$_flashModal = $_SESSION['flash_modal'] ?? null;
-$_flashError = $_SESSION['flash_error'] ?? null;
-$_flashOld   = $_SESSION['flash_old']   ?? [];
+// Read the one-time "flash" values from the session, then forget them
+// so the message only shows once.
+$_flashModal = isset($_SESSION['flash_modal']) ? $_SESSION['flash_modal'] : null;
+$_flashError = isset($_SESSION['flash_error']) ? $_SESSION['flash_error'] : null;
+$_flashOld   = isset($_SESSION['flash_old'])   ? $_SESSION['flash_old']   : [];
 unset($_SESSION['flash_modal'], $_SESSION['flash_error'], $_SESSION['flash_old']);
 
-$_autoOpen = $_flashModal
-    ?? (in_array($_GET['modal'] ?? '', ['login', 'register'], true) ? $_GET['modal'] : null);
+// Decide which modal (if any) should auto-open. Either a flash from a
+// previous request set it, or the URL contains ?modal=login / ?modal=register.
+$_autoOpen = null;
+if ($_flashModal !== null) {
+    $_autoOpen = $_flashModal;
+} elseif (isset($_GET['modal']) && ($_GET['modal'] === 'login' || $_GET['modal'] === 'register')) {
+    $_autoOpen = $_GET['modal'];
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">

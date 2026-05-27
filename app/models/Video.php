@@ -1,116 +1,70 @@
 <?php
 
 /**
- * Video model.
+ * Video model — one object = one row in the `videos` table.
  *
- * Represents a row in the `videos` table. Use the static finders
- * to load existing videos, or `new Video()` + ->save() to create one.
+ * Use the static finders (findById / listLatest / listByUser / search) to
+ * load videos from the database, or do `new Video()` + ->save() to upload
+ * a brand new one.
  */
 class Video
 {
-    public ?int    $videoId      = null;
-    public int     $userId       = 0;
-    public ?string $username     = null;
-    public string  $title        = '';
-    public ?string $description  = null;
-    public string  $url          = '';
-    public ?string $thumbnailUrl = null;
-    public int     $durationSec  = 0;
-    public int     $viewCount    = 0;
-    public ?string $createdAt    = null;
+    public $videoId      = null;
+    public $userId       = 0;
+    public $username     = null;  // joined from the users table
+    public $title        = '';
+    public $description  = null;
+    public $url          = '';
+    public $thumbnailUrl = null;
+    public $durationSec  = 0;
+    public $viewCount    = 0;
+    public $createdAt    = null;
 
-    /**
-     * Find a video by its primary key.
-     */
-    public static function findById(int $id): ?Video
+    // Find one video by its ID.
+    public static function findById($id)
     {
-        $row = Database::getInstance()->fetchOne(
+        $row = Database::fetchOne(
             'SELECT videos.*, users.username
              FROM videos
              LEFT JOIN users ON videos.user_id = users.user_id
              WHERE videos.video_id = ?',
             [$id]
         );
-        return $row ? self::hydrate($row) : null;
+        return self::fromRow($row);
     }
 
-    /**
-     * Get the most recent videos. Used on the homepage.
-     */
-    public static function listLatest(int $limit = 20): array
+    // Get the newest videos. Used on the homepage.
+    public static function listLatest($limit = 20)
     {
-        $rows = Database::getInstance()->fetchAll(
+        $rows = Database::fetchAll(
             'SELECT videos.*, users.username
              FROM videos
              LEFT JOIN users ON videos.user_id = users.user_id
              ORDER BY videos.created_at DESC LIMIT ?',
             [$limit]
         );
-        return array_map([self::class, 'hydrate'], $rows);
+        return self::fromRows($rows);
     }
 
-    /**
-     * Insert a new video, or update the existing one.
-     */
-    public function save(): bool
+    // Get all videos uploaded by a specific user.
+    public static function listByUser($userId, $limit = 50)
     {
-        $db = Database::getInstance();
-
-        if ($this->videoId === null) {
-            // INSERT
-            $db->query(
-                'INSERT INTO videos
-                    (user_id, title, description, url, thumbnail_url, duration_sec)
-                 VALUES (?, ?, ?, ?, ?, ?)',
-                [
-                    $this->userId,
-                    $this->title,
-                    $this->description,
-                    $this->url,
-                    $this->thumbnailUrl,
-                    $this->durationSec,
-                ]
-            );
-            $this->videoId = $db->lastInsertId();
-        } else {
-            // UPDATE — only fields the owner is allowed to edit
-            $db->query(
-                'UPDATE videos
-                 SET title = ?, description = ?, thumbnail_url = ?
-                 WHERE video_id = ?',
-                [
-                    $this->title,
-                    $this->description,
-                    $this->thumbnailUrl,
-                    $this->videoId,
-                ]
-            );
-        }
-        return true;
-    }
-
-    /**
-     * Get all videos uploaded by a specific user, newest first.
-     */
-    public static function listByUser(int $userId, int $limit = 50): array
-    {
-        $rows = Database::getInstance()->fetchAll(
+        $rows = Database::fetchAll(
             'SELECT videos.*, users.username
              FROM videos
              LEFT JOIN users ON videos.user_id = users.user_id
-             WHERE videos.user_id = ? ORDER BY videos.created_at DESC LIMIT ?',
+             WHERE videos.user_id = ?
+             ORDER BY videos.created_at DESC LIMIT ?',
             [$userId, $limit]
         );
-        return array_map([self::class, 'hydrate'], $rows);
+        return self::fromRows($rows);
     }
 
-    /**
-     * Full-text search across title and description.
-     */
-    public static function search(string $query, int $limit = 20): array
+    // Search videos by title or description.
+    public static function search($query, $limit = 20)
     {
         $like = '%' . $query . '%';
-        $rows = Database::getInstance()->fetchAll(
+        $rows = Database::fetchAll(
             'SELECT videos.*, users.username
              FROM videos
              LEFT JOIN users ON videos.user_id = users.user_id
@@ -118,18 +72,40 @@ class Video
              ORDER BY videos.created_at DESC LIMIT ?',
             [$like, $like, $limit]
         );
-        return array_map([self::class, 'hydrate'], $rows);
+        return self::fromRows($rows);
     }
 
-    /**
-     * Build a Video object from a DB row.
-     */
-    private static function hydrate(array $row): Video
+    // Save this video. New video -> INSERT, existing -> UPDATE.
+    public function save()
     {
+        if ($this->videoId === null) {
+            Database::query(
+                'INSERT INTO videos (user_id, title, description, url, thumbnail_url, duration_sec)
+                 VALUES (?, ?, ?, ?, ?, ?)',
+                [$this->userId, $this->title, $this->description, $this->url, $this->thumbnailUrl, $this->durationSec]
+            );
+            $this->videoId = Database::lastInsertId();
+        } else {
+            Database::query(
+                'UPDATE videos
+                 SET title = ?, description = ?, thumbnail_url = ?
+                 WHERE video_id = ?',
+                [$this->title, $this->description, $this->thumbnailUrl, $this->videoId]
+            );
+        }
+    }
+
+    // Turn one database row into a Video object (or null).
+    private static function fromRow($row)
+    {
+        if ($row === null) {
+            return null;
+        }
+
         $video = new Video();
         $video->videoId      = (int) $row['video_id'];
         $video->userId       = (int) $row['user_id'];
-        $video->username     = $row['username'] ?? null;
+        $video->username     = isset($row['username']) ? $row['username'] : null;
         $video->title        = $row['title'];
         $video->description  = $row['description'];
         $video->url          = $row['url'];
@@ -138,5 +114,15 @@ class Video
         $video->viewCount    = (int) $row['view_count'];
         $video->createdAt    = $row['created_at'];
         return $video;
+    }
+
+    // Turn many database rows into an array of Video objects.
+    private static function fromRows($rows)
+    {
+        $videos = [];
+        foreach ($rows as $row) {
+            $videos[] = self::fromRow($row);
+        }
+        return $videos;
     }
 }

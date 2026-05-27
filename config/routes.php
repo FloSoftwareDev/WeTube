@@ -3,41 +3,31 @@
 /**
  * Application routes.
  *
- * This file is loaded by /public/index.php after the Router is created.
- * The $router variable is already available in scope.
+ * Loaded by /public/index.php. The $router variable already exists.
+ * The third argument 'auth' means: only logged-in users can use this route.
  */
 
-// =====================================================
-// Auth routes (public)
-// =====================================================
+// Auth (public)
 $router->get('/login',     [AuthController::class, 'showLogin']);
 $router->post('/login',    [AuthController::class, 'login']);
 $router->get('/register',  [AuthController::class, 'showRegister']);
 $router->post('/register', [AuthController::class, 'register']);
-$router->post('/logout',   [AuthController::class, 'logout'])->middleware('auth');
+$router->post('/logout',   [AuthController::class, 'logout'], 'auth');
 
-// =====================================================
-// Public video routes
-// =====================================================
+// Public video pages
 $router->get('/',           [VideoController::class, 'index']);
 $router->get('/watch/{id}', [VideoController::class, 'show']);
 $router->get('/search',     [VideoController::class, 'search']);
 
-// =====================================================
-// Protected video routes
-// =====================================================
-$router->get('/profile',            [VideoController::class, 'profile'])->middleware('auth');
-$router->post('/profile',           [VideoController::class, 'profile'])->middleware('auth');
-$router->get('/upload',             [VideoController::class, 'upload'])->middleware('auth');
-$router->post('/upload',            [VideoController::class, 'upload'])->middleware('auth');
-$router->get('/video/{id}/edit',    [VideoController::class, 'edit'])->middleware('auth');
-$router->post('/video/{id}',        [VideoController::class, 'update'])->middleware('auth');
-$router->post('/video/{id}/delete', [VideoController::class, 'destroy'])->middleware('auth');
-$router->post('/video/{id}/like',   [VideoController::class, 'like'])->middleware('auth');
+// Pages that require login
+$router->get('/profile',         [VideoController::class, 'profile'], 'auth');
+$router->post('/profile',        [VideoController::class, 'profile'], 'auth');
+$router->get('/upload',          [VideoController::class, 'upload'], 'auth');
+$router->post('/upload',         [VideoController::class, 'upload'], 'auth');
+$router->get('/video/{id}/edit', [VideoController::class, 'edit'], 'auth');
+$router->post('/video/{id}',     [VideoController::class, 'update'], 'auth');
 
-// =====================================================
-// Comment routes (all require login)
-// =====================================================
-$router->post('/video/{id}/comment',  [CommentController::class, 'store'])->middleware('auth');
-$router->post('/comment/{id}/reply',  [CommentController::class, 'reply'])->middleware('auth');
-$router->post('/comment/{id}/delete', [CommentController::class, 'destroy'])->middleware('auth');
+// Comments (require login)
+$router->post('/video/{id}/comment',  [CommentController::class, 'store'], 'auth');
+$router->post('/comment/{id}/reply',  [CommentController::class, 'reply'], 'auth');
+$router->post('/comment/{id}/delete', [CommentController::class, 'destroy'], 'auth');

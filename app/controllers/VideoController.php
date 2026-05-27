@@ -1,16 +1,13 @@
 <?php
 
+/**
+ * VideoController — handles all the pages that have to do with videos:
+ * homepage, watch page, upload, edit, search, and the user's profile.
+ */
 class VideoController
 {
-    private const UPLOAD_DIR      = ROOT_PATH . '/public/uploads/videos/';
-    private const THUMB_DIR       = ROOT_PATH . '/public/uploads/thumbnails/';
-    private const UPLOAD_URL      = '/WeTube/public/uploads/videos/';
-    private const THUMB_URL       = '/WeTube/public/uploads/thumbnails/';
-    private const VIDEO_TYPES     = ['video/mp4', 'video/webm', 'video/ogg'];
-    private const IMAGE_TYPES     = ['image/jpeg', 'image/png', 'image/webp'];
-    private const MAX_VIDEO_BYTES = 500 * 1024 * 1024;
-
-    public function index(): void
+    // Homepage — show the 20 newest videos.
+    public function index()
     {
         $videos = Video::listLatest(20);
         include VIEWS_PATH . '/layouts/header.php';
@@ -18,7 +15,8 @@ class VideoController
         include VIEWS_PATH . '/layouts/footer.php';
     }
 
-    public function show(string $id): void
+    // Watch page — show one video and count one new view.
+    public function show($id)
     {
         $video = Video::findById((int) $id);
         if ($video === null) {
@@ -27,47 +25,117 @@ class VideoController
             return;
         }
 
-        Database::getInstance()->query(
+        // Add one view to the counter
+        Database::query(
             'UPDATE videos SET view_count = view_count + 1 WHERE video_id = ?',
             [$video->videoId]
         );
-        $video->viewCount++;
+        $video->viewCount = $video->viewCount + 1;
 
         include VIEWS_PATH . '/layouts/header.php';
         include VIEWS_PATH . '/videos/show.php';
         include VIEWS_PATH . '/layouts/footer.php';
     }
 
-    public function upload(): void
+    // Search page — show every video that matches the ?q= search term.
+    public function search()
     {
-        $error = $_SESSION['flash_error'] ?? null;
-        unset($_SESSION['flash_error']);
+        $q = isset($_GET['q']) ? trim($_GET['q']) : '';
 
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $this->handleUpload();
-            return;
+        if ($q === '') {
+            $videos = [];
+        } else {
+            $videos = Video::search($q);
         }
-
-        include VIEWS_PATH . '/layouts/header.php';
-        include VIEWS_PATH . '/videos/upload.php';
-        include VIEWS_PATH . '/layouts/footer.php';
-    }
-
-    public function search(): void
-    {
-        $q      = trim($_GET['q'] ?? '');
-        $videos = $q !== '' ? Video::search($q) : [];
 
         include VIEWS_PATH . '/layouts/header.php';
         include VIEWS_PATH . '/videos/index.php';
         include VIEWS_PATH . '/layouts/footer.php';
     }
 
-    public function edit(string $id): void
+    // Upload page. GET = show the form, POST = handle the uploaded file.
+    public function upload()
     {
-        $video = $this->requireOwned((int) $id);
+        $error = isset($_SESSION['flash_error']) ? $_SESSION['flash_error'] : null;
+        unset($_SESSION['flash_error']);
 
-        $error = $_SESSION['flash_error'] ?? null;
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            include VIEWS_PATH . '/layouts/header.php';
+            include VIEWS_PATH . '/videos/upload.php';
+            include VIEWS_PATH . '/layouts/footer.php';
+            return;
+        }
+
+        // ---- Form was submitted: validate everything ----
+        $title       = isset($_POST['title']) ? trim($_POST['title']) : '';
+        $description = isset($_POST['description']) ? trim($_POST['description']) : '';
+        if ($description === '') {
+            $description = null;
+        }
+
+        if ($title === '') {
+            $_SESSION['flash_error'] = 'Title is required.';
+            header('Location: /WeTube/public/upload');
+            exit;
+        }
+
+        $file = isset($_FILES['video']) ? $_FILES['video'] : null;
+
+        if ($file === null || $file['error'] !== UPLOAD_ERR_OK) {
+            $_SESSION['flash_error'] = 'Please select a video file.';
+            header('Location: /WeTube/public/upload');
+            exit;
+        }
+
+        $maxBytes = 500 * 1024 * 1024;  // 500 MB
+        if ($file['size'] > $maxBytes) {
+            $_SESSION['flash_error'] = 'File exceeds the 500 MB limit.';
+            header('Location: /WeTube/public/upload');
+            exit;
+        }
+
+        $allowedVideoTypes = ['video/mp4', 'video/webm', 'video/ogg'];
+        $mime = mime_content_type($file['tmp_name']);
+        if (!in_array($mime, $allowedVideoTypes)) {
+            $_SESSION['flash_error'] = 'Only MP4, WebM, and OGG files are accepted.';
+            header('Location: /WeTube/public/upload');
+            exit;
+        }
+
+        // ---- Move the file from PHP's temp folder into our uploads folder ----
+        $ext      = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        $filename = uniqid('video_') . '.' . $ext;
+        $target   = ROOT_PATH . '/public/uploads/videos/' . $filename;
+
+        if (!move_uploaded_file($file['tmp_name'], $target)) {
+            $_SESSION['flash_error'] = 'Upload failed — could not write the file.';
+            header('Location: /WeTube/public/upload');
+            exit;
+        }
+
+        // ---- Optional thumbnail ----
+        $thumbnailUrl = $this->saveThumbnail();
+
+        // ---- Save a new row in the videos table ----
+        $video               = new Video();
+        $video->userId       = (int) $_SESSION['user_id'];
+        $video->title        = $title;
+        $video->description  = $description;
+        $video->url          = '/WeTube/public/uploads/videos/' . $filename;
+        $video->thumbnailUrl = $thumbnailUrl;
+        $video->durationSec  = 0;
+        $video->save();
+
+        header('Location: /WeTube/public/watch/' . $video->videoId);
+        exit;
+    }
+
+    // Edit page — show the form to edit a video's title/description/thumbnail.
+    public function edit($id)
+    {
+        $video = $this->findOwnedVideo((int) $id);
+
+        $error = isset($_SESSION['flash_error']) ? $_SESSION['flash_error'] : null;
         unset($_SESSION['flash_error']);
 
         include VIEWS_PATH . '/layouts/header.php';
@@ -75,12 +143,16 @@ class VideoController
         include VIEWS_PATH . '/layouts/footer.php';
     }
 
-    public function update(string $id): void
+    // Save the edit form.
+    public function update($id)
     {
-        $video = $this->requireOwned((int) $id);
+        $video = $this->findOwnedVideo((int) $id);
 
-        $title       = trim($_POST['title'] ?? '');
-        $description = trim($_POST['description'] ?? '') ?: null;
+        $title       = isset($_POST['title']) ? trim($_POST['title']) : '';
+        $description = isset($_POST['description']) ? trim($_POST['description']) : '';
+        if ($description === '') {
+            $description = null;
+        }
 
         if ($title === '') {
             $_SESSION['flash_error'] = 'Title is required.';
@@ -91,7 +163,8 @@ class VideoController
         $video->title       = $title;
         $video->description = $description;
 
-        $newThumb = $this->saveThumbnail($_FILES['thumbnail'] ?? null);
+        // If the user uploaded a new thumbnail, replace the old one
+        $newThumb = $this->saveThumbnail();
         if ($newThumb !== null) {
             $video->thumbnailUrl = $newThumb;
         }
@@ -101,27 +174,33 @@ class VideoController
         header('Location: /WeTube/public/watch/' . $video->videoId);
         exit;
     }
-    public function profile(): void
+
+    // Profile page. GET = show profile, POST = save the bio text.
+    public function profile()
     {
+        $userId = (int) $_SESSION['user_id'];
+
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $user      = User::findById((int) $_SESSION['user_id']);
-            $user->bio = trim($_POST['bio'] ?? '') ?: null;
+            $user = User::findById($userId);
+            $bio  = isset($_POST['bio']) ? trim($_POST['bio']) : '';
+            $user->bio = $bio === '' ? null : $bio;
             $user->save();
             header('Location: /WeTube/public/profile');
             exit;
         }
 
-        $user   = User::findById((int) $_SESSION['user_id']);
-        $videos = Video::listByUser((int) $_SESSION['user_id']);
+        $user   = User::findById($userId);
+        $videos = Video::listByUser($userId);
         include VIEWS_PATH . '/layouts/header.php';
         include VIEWS_PATH . '/profile/index.php';
         include VIEWS_PATH . '/layouts/footer.php';
     }
 
-    public function destroy(string $id): void {}
-    public function like(string $id): void {}
+    // ---- Private helpers ----
 
-    private function requireOwned(int $id): Video
+    // Find a video and make sure the current user owns it.
+    // Stops the script with 404 or 403 if not allowed.
+    private function findOwnedVideo($id)
     {
         $video = Video::findById($id);
         if ($video === null) {
@@ -137,78 +216,30 @@ class VideoController
         return $video;
     }
 
-    private function handleUpload(): void
+    // Save an optional thumbnail image. Returns the public URL of the saved
+    // image, or null if no thumbnail was uploaded (or it was the wrong type).
+    private function saveThumbnail()
     {
-        $title       = trim($_POST['title'] ?? '');
-        $description = trim($_POST['description'] ?? '') ?: null;
+        $thumb = isset($_FILES['thumbnail']) ? $_FILES['thumbnail'] : null;
 
-        if ($title === '') {
-            $_SESSION['flash_error'] = 'Title is required.';
-            header('Location: /WeTube/public/upload');
-            exit;
-        }
-
-        $file = $_FILES['video'] ?? null;
-
-        if (!$file || $file['error'] !== UPLOAD_ERR_OK) {
-            $_SESSION['flash_error'] = 'Please select a video file.';
-            header('Location: /WeTube/public/upload');
-            exit;
-        }
-
-        if ($file['size'] > self::MAX_VIDEO_BYTES) {
-            $_SESSION['flash_error'] = 'File exceeds the 500 MB limit.';
-            header('Location: /WeTube/public/upload');
-            exit;
-        }
-
-        $mime = mime_content_type($file['tmp_name']);
-        if (!in_array($mime, self::VIDEO_TYPES, true)) {
-            $_SESSION['flash_error'] = 'Only MP4, WebM, and OGG files are accepted.';
-            header('Location: /WeTube/public/upload');
-            exit;
-        }
-
-        $ext      = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-        $filename = bin2hex(random_bytes(16)) . '.' . $ext;
-
-        if (!move_uploaded_file($file['tmp_name'], self::UPLOAD_DIR . $filename)) {
-            $_SESSION['flash_error'] = 'Upload failed — could not write the file.';
-            header('Location: /WeTube/public/upload');
-            exit;
-        }
-
-        $video              = new Video();
-        $video->userId      = (int) $_SESSION['user_id'];
-        $video->title       = $title;
-        $video->description = $description;
-        $video->url         = self::UPLOAD_URL . $filename;
-        $video->thumbnailUrl = $this->saveThumbnail($_FILES['thumbnail'] ?? null);
-        $video->durationSec = 0;
-        $video->save();
-
-        header('Location: /WeTube/public/watch/' . $video->videoId);
-        exit;
-    }
-
-    private function saveThumbnail(?array $thumb): ?string
-    {
-        if (!$thumb || $thumb['error'] !== UPLOAD_ERR_OK) {
+        if ($thumb === null || $thumb['error'] !== UPLOAD_ERR_OK) {
             return null;
         }
 
+        $allowedImageTypes = ['image/jpeg', 'image/png', 'image/webp'];
         $mime = mime_content_type($thumb['tmp_name']);
-        if (!in_array($mime, self::IMAGE_TYPES, true)) {
+        if (!in_array($mime, $allowedImageTypes)) {
             return null;
         }
 
         $ext      = strtolower(pathinfo($thumb['name'], PATHINFO_EXTENSION));
-        $filename = bin2hex(random_bytes(16)) . '.' . $ext;
+        $filename = uniqid('thumb_') . '.' . $ext;
+        $target   = ROOT_PATH . '/public/uploads/thumbnails/' . $filename;
 
-        if (!move_uploaded_file($thumb['tmp_name'], self::THUMB_DIR . $filename)) {
+        if (!move_uploaded_file($thumb['tmp_name'], $target)) {
             return null;
         }
 
-        return self::THUMB_URL . $filename;
+        return '/WeTube/public/uploads/thumbnails/' . $filename;
     }
 }

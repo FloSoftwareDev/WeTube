@@ -1,8 +1,14 @@
 <?php
 
+/**
+ * AuthController — handles the login, register and logout pages.
+ * The real work happens in AuthService — this controller just
+ * reads the form, calls the service, and redirects the user.
+ */
 class AuthController
 {
-    public function showLogin(): void
+    // /login (GET) — open the homepage with the login modal showing
+    public function showLogin()
     {
         if (AuthService::check()) {
             header('Location: /WeTube/public/');
@@ -12,10 +18,11 @@ class AuthController
         exit;
     }
 
-    public function login(): void
+    // /login (POST) — handle the submitted login form
+    public function login()
     {
-        $identifier = $_POST['identifier'] ?? '';
-        $password   = $_POST['password']   ?? '';
+        $identifier = isset($_POST['identifier']) ? $_POST['identifier'] : '';
+        $password   = isset($_POST['password']) ? $_POST['password'] : '';
 
         $user = AuthService::login($identifier, $password);
 
@@ -30,7 +37,8 @@ class AuthController
         exit;
     }
 
-    public function showRegister(): void
+    // /register (GET) — open the homepage with the register modal showing
+    public function showRegister()
     {
         if (AuthService::check()) {
             header('Location: /WeTube/public/');
@@ -40,32 +48,38 @@ class AuthController
         exit;
     }
 
-    public function register(): void
+    // /register (POST) — handle the submitted register form
+    public function register()
     {
+        $username        = isset($_POST['username']) ? $_POST['username'] : '';
+        $email           = isset($_POST['email']) ? $_POST['email'] : '';
+        $password        = isset($_POST['password']) ? $_POST['password'] : '';
+        $confirmPassword = isset($_POST['confirm_password']) ? $_POST['confirm_password'] : '';
+
         try {
             AuthService::register([
-                'username'         => $_POST['username']         ?? '',
-                'email'            => $_POST['email']            ?? '',
-                'password'         => $_POST['password']         ?? '',
-                'confirm_password' => $_POST['confirm_password'] ?? '',
+                'username'         => $username,
+                'email'            => $email,
+                'password'         => $password,
+                'confirm_password' => $confirmPassword,
             ]);
         } catch (RuntimeException $e) {
+            // Validation failed — show the modal again with the error message
             $_SESSION['flash_error'] = $e->getMessage();
             $_SESSION['flash_modal'] = 'register';
-            $_SESSION['flash_old']   = [
-                'username' => $_POST['username'] ?? '',
-                'email'    => $_POST['email']    ?? '',
-            ];
+            $_SESSION['flash_old']   = ['username' => $username, 'email' => $email];
             header('Location: /WeTube/public/');
             exit;
         }
 
-        AuthService::login($_POST['email'], $_POST['password']);
+        // Account created -> log them in straight away
+        AuthService::login($email, $password);
         header('Location: /WeTube/public/');
         exit;
     }
 
-    public function logout(): void
+    // /logout (POST) — clear the session
+    public function logout()
     {
         AuthService::logout();
         header('Location: /WeTube/public/');
