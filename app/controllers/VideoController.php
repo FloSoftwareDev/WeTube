@@ -39,10 +39,16 @@ class VideoController
             $replies[$c->commentId] = Comment::findReplies($c->commentId);
         }
 
+        $likeCount = Video::countLikes($video->videoId);
+
         // Current user (for the "can delete this comment?" check)
         $currentUser = AuthService::check()
             ? User::findById((int) $_SESSION['user_id'])
             : null;
+
+        // Has the logged-in user already liked this video?
+        $hasLiked = $currentUser !== null
+            && Video::hasLiked($currentUser->userId, $video->videoId);
 
         $commentError = isset($_SESSION['flash_error']) ? $_SESSION['flash_error'] : null;
         unset($_SESSION['flash_error']);
@@ -52,20 +58,25 @@ class VideoController
         include VIEWS_PATH . '/layouts/footer.php';
     }
 
-    // Search page — show every video that matches the ?q= search term.
-    public function search()
+    // Like / unlike a video, then go back to the watch page.
+    public function toggleLike($id)
     {
-        $q = isset($_GET['q']) ? trim($_GET['q']) : '';
-
-        if ($q === '') {
-            $videos = [];
-        } else {
-            $videos = Video::search($q);
+        if (!isset($_SESSION['user_id'])) {
+            http_response_code(403);
+            echo '403 — You must be logged in to like videos.';
+            return;
+        }
+        $video = Video::findById((int) $id);
+        if ($video === null) {
+            http_response_code(404);
+            echo '404 — Video not found';
+            return;
         }
 
-        include VIEWS_PATH . '/layouts/header.php';
-        include VIEWS_PATH . '/videos/index.php';
-        include VIEWS_PATH . '/layouts/footer.php';
+        Video::toggleLike((int) $_SESSION['user_id'], $video->videoId);
+
+        header('Location: /WeTube/public/watch/' . $video->videoId);
+        exit;
     }
 
     // Upload page. GET = show the form, POST = handle the uploaded file.

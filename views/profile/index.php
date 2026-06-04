@@ -60,9 +60,9 @@
                         <a href="/WeTube/public/watch/<?= $v->videoId ?>" class="video-card__thumb-link">
                             <div class="video-card__thumb-wrap">
                                 <?php if ($v->thumbnailUrl): ?>
-                                    <img class="thumb" src="<?= htmlspecialchars($v->thumbnailUrl) ?>" alt="">
+                                    <img class="thumb" src="<?= htmlspecialchars($v->thumbnailUrl) ?>" alt="" onerror="thumbFallback(this)">
                                 <?php else: ?>
-                                    <div class="thumb-blank">&#9654;</div>
+                                    <div class="thumb-blank"><span class="thumb-blank__icon">&#9654;</span></div>
                                 <?php endif; ?>
                                 <div class="video-card__progress"></div>
                             </div>

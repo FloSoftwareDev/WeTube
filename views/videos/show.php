@@ -6,11 +6,14 @@
  *   $replies      — array<int, Comment[]> keyed by parent commentId
  *   $currentUser  — User|null (logged-in user, or null)
  *   $commentError — string|null (flash error from a failed post)
+ *   $likeCount    — int (total likes on this video)
+ *   $hasLiked     — bool (true if the logged-in user has liked it)
  */
 ?>
 <div class="wt-player">
     <div class="wt-player__container">
-        <video src="<?= htmlspecialchars($video->url) ?>" controls>
+        <video src="<?= htmlspecialchars($video->url) ?>" controls
+               <?php if ($video->thumbnailUrl): ?>poster="<?= htmlspecialchars($video->thumbnailUrl) ?>"<?php endif; ?>>
             Your browser does not support the video element.
         </video>
     </div>
@@ -35,6 +38,26 @@
             <?= number_format($video->viewCount) ?> views &middot;
             <?= htmlspecialchars($video->createdAt) ?>
         </p>
+
+        <div class="wt-player__like-row">
+            <?php if (AuthService::check()): ?>
+                <form method="POST" action="/WeTube/public/video/<?= $video->videoId ?>/like">
+                    <button type="submit"
+                            class="wt-player__like<?= $hasLiked ? ' wt-player__like--active' : '' ?>">
+                        &#9650; <?= number_format($likeCount) ?>
+                    </button>
+                </form>
+            <?php else: ?>
+                <button type="button"
+                        class="wt-player__like"
+                        onclick="this.nextElementSibling.hidden = false">
+                    &#9650; <?= number_format($likeCount) ?>
+                </button>
+                <span class="wt-player__like-hint" hidden>
+                    You need to be <a href="/WeTube/public/login">logged in</a> to like.
+                </span>
+            <?php endif; ?>
+        </div>
 
         <?php if ($video->description): ?>
             <p class="wt-player__desc"><?= htmlspecialchars($video->description) ?></p>

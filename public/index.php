@@ -19,6 +19,7 @@ require_once APP_PATH . '/services/AuthService.php';
 require_once APP_PATH . '/controllers/AuthController.php';
 require_once APP_PATH . '/controllers/VideoController.php';
 require_once APP_PATH . '/controllers/CommentController.php';
+require_once APP_PATH . '/controllers/SearchController.php';
 
 // 3. Start the PHP session (so we can remember who's logged in)
 session_start();

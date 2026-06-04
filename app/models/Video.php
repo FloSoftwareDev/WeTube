@@ -60,19 +60,50 @@ class Video
         return self::fromRows($rows);
     }
 
-    // Search videos by title or description.
-    public static function search($query, $limit = 20)
+    // Search videos by title, description, or uploader's username.
+    // $sort decides the ordering; $limit + $offset drive pagination.
+    public static function search($query, $sort = 'newest', $limit = 12, $offset = 0)
     {
         $like = '%' . $query . '%';
         $rows = Database::fetchAll(
             'SELECT videos.*, users.username
              FROM videos
              LEFT JOIN users ON videos.user_id = users.user_id
-             WHERE videos.title LIKE ? OR videos.description LIKE ?
-             ORDER BY videos.created_at DESC LIMIT ?',
-            [$like, $like, $limit]
+             WHERE videos.title LIKE ? OR videos.description LIKE ? OR users.username LIKE ?
+             ORDER BY ' . self::orderClause($sort) . '
+             LIMIT ? OFFSET ?',
+            [$like, $like, $like, $limit, $offset]
         );
         return self::fromRows($rows);
+    }
+
+    // Count how many videos match a search term (used for pagination).
+    public static function countSearch($query)
+    {
+        $like = '%' . $query . '%';
+        $row = Database::fetchOne(
+            'SELECT COUNT(*) AS total
+             FROM videos
+             LEFT JOIN users ON videos.user_id = users.user_id
+             WHERE videos.title LIKE ? OR videos.description LIKE ? OR users.username LIKE ?',
+            [$like, $like, $like]
+        );
+        return (int) $row['total'];
+    }
+
+    // Translate a sort key into a safe ORDER BY clause. ORDER BY can't be a
+    // bound parameter, so we whitelist the options here to avoid SQL injection.
+    private static function orderClause($sort)
+    {
+        switch ($sort) {
+            case 'oldest':
+                return 'videos.created_at ASC';
+            case 'views':
+                return 'videos.view_count DESC';
+            case 'newest':
+            default:
+                return 'videos.created_at DESC';
+        }
     }
 
     // Save this video. New video -> INSERT, existing -> UPDATE.
@@ -93,6 +124,46 @@ class Video
                 [$this->title, $this->description, $this->thumbnailUrl, $this->videoId]
             );
         }
+    }
+
+    // ---- Likes ----
+
+    // How many likes a video has.
+    public static function countLikes($videoId)
+    {
+        $row = Database::fetchOne(
+            'SELECT COUNT(*) AS like_count FROM likes WHERE video_id = ?',
+            [$videoId]
+        );
+        return (int) $row['like_count'];
+    }
+
+    // Has this user already liked this video?
+    public static function hasLiked($userId, $videoId)
+    {
+        $row = Database::fetchOne(
+            'SELECT like_id FROM likes WHERE user_id = ? AND video_id = ?',
+            [$userId, $videoId]
+        );
+        return $row !== null;
+    }
+
+    // Like a video, or remove the like if it's already there.
+    // Returns true if the video is now liked, false if it was unliked.
+    public static function toggleLike($userId, $videoId)
+    {
+        if (self::hasLiked($userId, $videoId)) {
+            Database::query(
+                'DELETE FROM likes WHERE user_id = ? AND video_id = ?',
+                [$userId, $videoId]
+            );
+            return false;
+        }
+        Database::query(
+            'INSERT INTO likes (user_id, video_id) VALUES (?, ?)',
+            [$userId, $videoId]
+        );
+        return true;
     }
 
     // Turn one database row into a Video object (or null).

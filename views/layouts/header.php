@@ -20,13 +20,10 @@ if ($_flashModal !== null) {
 <head>
 <meta charset="UTF-8">
 <title>WeTube</title>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Orbitron:wght@700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/WeTube/public/css/style.css?v=<?= filemtime(ROOT_PATH . '/public/css/style.css') ?>">
 </head>
 <body>
-
-<div class="ambient-blob-1"></div>
-<div class="ambient-blob-2"></div>
 
 <nav class="wt-nav">
     <a href="/WeTube/public/" class="wt-logo">WeTube</a>
@@ -112,6 +109,9 @@ if ($_flashModal !== null) {
 </div>
 
 <script>
+function thumbFallback(img) {
+    img.outerHTML = '<div class="thumb-blank"><span class="thumb-blank__icon">▶</span></div>';
+}
 function openModal(id) {
     document.getElementById(id + '-modal').classList.add('active');
     document.body.style.overflow = 'hidden';

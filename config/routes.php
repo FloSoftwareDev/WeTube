@@ -17,7 +17,7 @@ $router->post('/logout',   [AuthController::class, 'logout'], 'auth');
 // Public video pages
 $router->get('/',           [VideoController::class, 'index']);
 $router->get('/watch/{id}', [VideoController::class, 'show']);
-$router->get('/search',     [VideoController::class, 'search']);
+$router->get('/search',     [SearchController::class, 'index']);
 
 // Pages that require login
 $router->get('/profile',         [VideoController::class, 'profile'], 'auth');
@@ -26,6 +26,7 @@ $router->get('/upload',          [VideoController::class, 'upload'], 'auth');
 $router->post('/upload',         [VideoController::class, 'upload'], 'auth');
 $router->get('/video/{id}/edit', [VideoController::class, 'edit'], 'auth');
 $router->post('/video/{id}',     [VideoController::class, 'update'], 'auth');
+$router->post('/video/{id}/like', [VideoController::class, 'toggleLike'], 'auth');
 
 // Comments (require login)
 $router->post('/video/{id}/comment',  [CommentController::class, 'store'], 'auth');

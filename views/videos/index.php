@@ -2,7 +2,7 @@
 
 <?php if (empty($videos)): ?>
     <p class="wt-empty">
-        No videos yet.
+        Couldn't find any videos for: <strong><?= htmlspecialchars($_GET['q'] ?? '') ?></strong>
         <?php if (AuthService::check()): ?>
             <a href="/WeTube/public/upload">Be the first to upload!</a>
         <?php endif; ?>
@@ -14,9 +14,9 @@
                 <a href="/WeTube/public/watch/<?= $v->videoId ?>">
                     <div class="video-card__thumb-wrap">
                         <?php if ($v->thumbnailUrl): ?>
-                            <img class="thumb" src="<?= htmlspecialchars($v->thumbnailUrl) ?>" alt="">
+                            <img class="thumb" src="<?= htmlspecialchars($v->thumbnailUrl) ?>" alt="" onerror="thumbFallback(this)">
                         <?php else: ?>
-                            <div class="thumb-blank">&#9654;</div>
+                            <div class="thumb-blank"><span class="thumb-blank__icon">&#9654;</span></div>
                         <?php endif; ?>
                         <div class="video-card__progress"></div>
                     </div>
